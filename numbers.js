@@ -1,3 +1,5 @@
+"use strict";
+
 const BASE_URL = "http://numbersapi.com";
 
 //http://numbersapi.com/random/year?json
@@ -6,9 +8,9 @@ const BASE_URL = "http://numbersapi.com";
  * console logs the result */
 async function showNumberTrivia(faveNum) {
 
-  const result = await fetch(`${BASE_URL}/${faveNum}?json`); //FIXME: conventional - call it response
+  const response = await fetch(`${BASE_URL}/${faveNum}?json`);
 
-  const jsonResult = await result.json();
+  const jsonResult = await response.json();
   //first await all of the json.
 
   console.log("jsonResult", jsonResult);
@@ -20,34 +22,46 @@ async function showNumberTrivia(faveNum) {
 
 /**Gets trivia about any of the numbers listed, and
  * console logs the first response from numbers api */
-async function showNumberRace() {
-  const num1 = fetch(`${BASE_URL}/20?json`);
-  const num2 = fetch(`${BASE_URL}/99?json`);
-  const num3 = fetch(`${BASE_URL}/200?json`);
-  const num4 = fetch(`${BASE_URL}/150?json`);
+async function showNumberRace(nums) {
 
-  const answerPromise = await Promise.race([num1, num2, num3, num4]);
-  const winnerTrivia = await answerPromise.json(); //FIXME: call it winnerResponse
-  console.log(winnerTrivia.text);
+  // for every num within nums, returns a promise
+  // .map puts things into an array
+  // since async fns only return promises, need to await the response
+  const responsePromises = nums.map(n => fetch(`${BASE_URL}/${n}?json`));
+
+  console.log(responsePromises); //[Promise, Promise, Promise]
+
+  //now that i have a promise for each num fetch, i need to await the winner
+  const winningResponse = await Promise.race(responsePromises);
+  // this will return 1 response object of whatever data returns first
+
+
+  //now that i have the response object, i can access the status codes, etc.
+  //to get the data, i need to await and call .json() on it to parse the data
+  const winningData = await winningResponse.json();
+
+  //now i can access the parsed data and get values out of the object.
+  console.log(winningData.text);
 }
 
 
-async function showNumberAll() {
+async function showNumberAll(nums) {
 
-  const num1 = fetch(`${BASE_URL}/20?json`);
-  const num2 = fetch(`${BASE_URL}/99?json`);
-  const num3 = fetch(`${BASE_URL}/WRoNG?json`);
-  const num4 = fetch(`${BASE_URL}/150?json`);
+  //array of promises, one for each num in nums
+  const responsePromise = nums.map(n => fetch(`${BASE_URL}/${n}?json`));
 
-  const fetchResults = await Promise.allSettled([num1, num2, num3, num4]);
 
+  // Promise.allSettled returns a single promise
   // awaiting Promise.allSettled returns a list of objects
-  // need to await the json for all the objects from the response obj
+  const fetchResults = await Promise.allSettled(responsePromise);
+
+  //now filter through the responses to find responses that are successful
 
   const successResults = fetchResults.filter(
     r => r.status === "fulfilled" && r.value.ok === true
   );
 
+  // now get the response value out
   for (const response of successResults) {
     const responseValue = await response.value.json();
     const statusCode = response.value.status;
@@ -71,3 +85,12 @@ async function showNumberAll() {
   }
 
 }
+/**Makes calls in sequence  */
+async function main() {
+  await showNumberTrivia(20);
+  await showNumberRace([1, 2, 3]);
+  await showNumberAll([4, 5, 6]);
+
+}
+
+main();
